@@ -1,0 +1,73 @@
+#!/bin/bash
+
+set -e
+
+indent() {
+  sed -u 's/^/       /'
+}
+
+BUILD_DIR="$1"
+
+CACHE_DIR="$2"
+
+LIGHTTPD_VERSION='1.4.32'
+LIGHTTPD_VERSION_MAJOR="$(echo $LIGHTTPD_VERSION | cut -d '.' -f 1)"
+LIGHTTPD_VERSION_MINOR="$(echo $LIGHTTPD_VERSION | cut -d '.' -f 2)"
+LIGHTTPD_URL="http://download.lighttpd.net/lighttpd/releases-$LIGHTTPD_VERSION_MAJOR.$LIGHTTPD_VERSION_MINOR.x/lighttpd-$LIGHTTPD_VERSION.tar.gz"
+
+echo "-----> Bundling lighttpd version $LIGHTTPD_VERSION"
+
+LIGHTTPD_CACHE_DIR="$CACHE_DIR/lighttpd-$LIGHTTPD_VERSION"
+
+if [ ! -d "$LIGHTTPD_CACHE_DIR" ]; then
+  LIGHTTPD_BUILD_DIR="$(mktemp -d)"
+
+  (
+    cd "$LIGHTTPD_BUILD_DIR"
+
+    echo -n 'Downloading source...' | indent
+    curl --location "$LIGHTTPD_URL" --silent | tar xz
+    echo ' done'
+
+    cd "lighttpd-$LIGHTTPD_VERSION"
+
+    echo -n 'Building...' | indent
+    ./configure "--prefix=$HOME/lighttpd" --without-pcre >/dev/null 2>&1
+    make >/dev/null 2>&1
+    echo ' done'
+
+    echo -n 'Caching binaries...' | indent
+    make install "prefix=$LIGHTTPD_CACHE_DIR" >/dev/null 2>&1
+    echo ' done'
+  )
+
+  rm -rf "$LIGHTTPD_BUILD_DIR"
+fi
+
+echo -n 'Copying cached binaries...' | indent
+cp -r "$CACHE_DIR/lighttpd-$LIGHTTPD_VERSION" "$BUILD_DIR/lighttpd"
+echo ' done'
+
+LIGHTTPD_CONFIG="$BUILD_DIR/lighttpd.conf"
+
+if [ ! -f "$LIGHTTPD_CONFIG" ]; then
+  cat >"$LIGHTTPD_CONFIG" <<EOH
+server.document-root = env.HOME + "/public_html"
+
+server.indexfiles    = ( "index.html",
+                         "index.htm" )
+
+server.port          = env.PORT
+
+mimetype.assign      = ( ".css"  => "text/css",
+                         ".gif"  => "image/gif",
+                         ".htm"  => "text/html",
+                         ".html" => "text/html",
+                         ".jpeg" => "image/jpeg",
+                         ".jpg"  => "image/jpeg",
+                         ".js"   => "application/javascript",
+                         ".pdf"  => "application/pdf",
+                         ".png"  => "image/png",
+                         ".txt"  => "text/plain" )
+EOH
+fi

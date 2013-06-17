@@ -1,0 +1,7 @@
+#!/bin/bash
+
+cat <<EOH
+---
+default_process_types:
+  web: lighttpd/sbin/lighttpd -D -f lighttpd.conf
+EOH

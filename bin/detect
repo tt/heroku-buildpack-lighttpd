@@ -1,0 +1,10 @@
+#!/bin/bash
+
+BUILD_DIR="$1"
+
+if [ -d "$BUILD_DIR/public_html" ]; then
+  echo 'lighttpd'
+  exit 0
+fi
+
+exit 1
